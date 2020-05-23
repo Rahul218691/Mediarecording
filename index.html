@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LiveReccording</title>
+    <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <style type="text/css">
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        .buttontool{
+            display: flex;
+            flex-direction: column;
+        }
+        .videotool{
+            position: absolute;
+            left: 30%;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 class="text-center">Live recording</h1>
+    </header>
+    <div class="container buttontool">
+        <button id="btnStart" class="btn btn-primary">START RECORDING</button>
+        <button id="btnpause" class="btn btn-warning">PAUSE RECORDING</button>
+        <button id="btnplay" class="btn btn-success" style="display: none;">RESUME RECORDING</button>
+        <button id="btnStop" class="btn btn-danger">STOP RECORDING</button>  
+    </div>
+    <hr>
+   <div class="container videotool">
+      
+        <video controls id="vid1"></video>
+        
+        <video id="vid2" controls style="display: none;"></video>
+   </div>
+    <script>
+        var video1 = document.getElementById('vid1');
+        
+        let constraintObj = { 
+            audio: true, 
+            video: { 
+                facingMode: "user", 
+                width: { min: 640, ideal: 640, max: 1920 },
+                height: { min: 480, ideal: 480, max: 1080 } 
+            } 
+        }; 
+
+        if (navigator.mediaDevices === undefined) {
+            navigator.mediaDevices = {};
+            navigator.mediaDevices.getUserMedia = function(constraintObj) {
+                let getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                if (!getUserMedia) {
+                    return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+                }
+                return new Promise(function(resolve, reject) {
+                    getUserMedia.call(navigator, constraintObj, resolve, reject);
+                });
+            }
+        }else{
+            navigator.mediaDevices.enumerateDevices()
+            .then(devices => {
+                devices.forEach(device=>{
+                    console.log(device.kind.toUpperCase(), device.label);
+                    //, device.deviceId
+                })
+            })
+            .catch(err=>{
+                console.log(err.name, err.message);
+            })
+        }
+
+        navigator.mediaDevices.getUserMedia(constraintObj)
+        .then(function(mediaStreamObj) {
+            //connect the media stream to the first video element
+            let video = document.querySelector('video');
+            if ("srcObject" in video) {
+                video.srcObject = mediaStreamObj;
+            } else {
+                //old version
+                video.src = window.URL.createObjectURL(mediaStreamObj);
+            }
+            
+            video.onloadedmetadata = function(ev) {
+                //show in the video element what is being captured by the webcam
+                video.play();
+            };
+            
+            //add listeners for saving video/audio
+            let start = document.getElementById('btnStart');
+            let stop = document.getElementById('btnStop');
+            let pausebtn = document.getElementById('btnpause');
+            let vidSave = document.getElementById('vid2');
+            let btnplay = document.getElementById('btnplay');
+            let mediaRecorder = new MediaRecorder(mediaStreamObj);
+            let chunks = [];
+            
+            start.addEventListener('click', (ev)=>{
+                mediaRecorder.start();
+                console.log(mediaRecorder.state);
+            })
+            stop.addEventListener('click', (ev)=>{
+                mediaRecorder.stop();
+                video1.style.display = "none";
+                video1.pause();
+
+                document.getElementById('vid2').style.display = "block";
+                console.log(mediaRecorder.state);
+            });
+            btnplay.addEventListener('click',()=>{
+                video1.play();
+                btnplay.style.display = "none";
+                pausebtn.style.display = "block";
+            })
+            pausebtn.addEventListener('click',()=>{
+                video1.pause();
+                pausebtn.style.display = "none";
+                btnplay.style.display = "block";
+            })
+            mediaRecorder.ondataavailable = function(ev) {
+                chunks.push(ev.data);
+            }
+            mediaRecorder.onstop = (ev)=>{
+                let blob = new Blob(chunks, { 'type' : 'video/mp4;' });
+                chunks = [];
+                let videoURL = window.URL.createObjectURL(blob);
+                vidSave.src = videoURL;
+            }
+        })
+        .catch(function(err) { 
+            console.log(err.name, err.message); 
+        });
+        
+    </script>
+</body>
+</html>
